@@ -63,22 +63,6 @@ const getMonthDays = (year, month) => {
   });
 };
 
-// ─── RESPONSIVE PIE SIZE ────────────────────────────────────────────────────
-// Calculates the largest pie that fits comfortably on the screen.
-// 220px = approx height consumed by header + nav tabs + legend + hint + safe area.
-function usePieSize() {
-  const [size, setSize] = useState(() =>
-    Math.min(300, Math.max(220, window.innerHeight - 230))
-  );
-  useEffect(() => {
-    const update = () =>
-      setSize(Math.min(300, Math.max(220, window.innerHeight - 230)));
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-  return size;
-}
-
 // ─── MINI RING (heatmap cell) ────────────────────────────────────────────────
 function MiniRing({ loggedSet, categories, size = 26 }) {
   const cx = size / 2, cy = size / 2, r = size * 0.42, ir = size * 0.22;
@@ -433,12 +417,10 @@ export default function App() {
     dragStartX.current = null;
   };
 
-  // Responsive pie dimensions — scales to available screen height
-  const PIE_SIZE = usePieSize();
+  // Pie dimensions
+  const PIE_SIZE = 310;
   const cx = PIE_SIZE / 2, cy = PIE_SIZE / 2;
-  // R and IR scale proportionally from the 310px baseline
-  const R  = Math.round(PIE_SIZE * 0.429);  // 133 / 310
-  const IR = Math.round(PIE_SIZE * 0.168);  // 52  / 310
+  const R = 133, IR = 52;
   const loggedToday = getLoggedCatsToday();
   const completedCount = loggedToday.size;
 
@@ -447,13 +429,11 @@ export default function App() {
   return (
     <div
       style={{
-        height: "100svh",
-        display: "flex",
-        flexDirection: "column",
+        minHeight: "100svh",
         background: "#080812",
         color: "white",
         fontFamily: "'Space Mono', 'Courier New', monospace",
-        overflow: "hidden",
+        overflowX: "hidden",
         position: "relative",
         userSelect: "none",
         WebkitUserSelect: "none",
@@ -475,7 +455,7 @@ export default function App() {
       }} />
 
       {/* Header */}
-      <div style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 22px 0", flexShrink: 0 }}>
+      <div style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "20px 22px 0" }}>
         <div>
           <div style={{ fontSize: 20, letterSpacing: "0.4em", color: "rgba(255,255,255,0.85)", fontWeight: "bold" }}>RITUAL</div>
           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", letterSpacing: "0.12em", marginTop: 2 }}>
@@ -495,7 +475,7 @@ export default function App() {
       </div>
 
       {/* View navigation tabs */}
-      <div style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "center", gap: 6, padding: "10px 0 0", flexShrink: 0 }}>
+      <div style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "center", gap: 6, padding: "14px 0 0" }}>
         {views.map((v, i) => (
           <button
             key={v}
@@ -514,8 +494,8 @@ export default function App() {
         ))}
       </div>
 
-      {/* Views container — flex:1 makes it fill ALL remaining height after header+tabs */}
-      <div style={{ position: "relative", zIndex: 5, flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      {/* Views container */}
+      <div style={{ position: "relative", zIndex: 5, overflow: "hidden" }}>
         <AnimatePresence mode="wait">
           {/* ── VIEW 0: PIE ─────────────────────────────────── */}
           {currentView === 0 && (
@@ -525,15 +505,7 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -60 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
-              style={{
-                flex: 1,                    // Fill the full remaining height
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",   // Vertically center the pie + legend
-                gap: 0,
-                paddingBottom: "env(safe-area-inset-bottom, 12px)", // iPhone home bar
-              }}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 12 }}
             >
               {/* PIE SVG */}
               <div style={{ position: "relative", width: PIE_SIZE, height: PIE_SIZE }}>
@@ -597,7 +569,7 @@ export default function App() {
                   {/* Slice emojis */}
                   {DEFAULT_CATEGORIES.map((cat, i) => {
                     const midAngle = (i * 45 + 22.5 - 90) * (Math.PI / 180);
-                    const labelR = R * 0.75; // proportional to pie size
+                    const labelR = 100;
                     const lx = cx + labelR * Math.cos(midAngle);
                     const ly = cy + labelR * Math.sin(midAngle);
                     return (
@@ -669,7 +641,7 @@ export default function App() {
               {/* Legend grid */}
               <div style={{
                 display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr",
-                gap: "4px 12px", padding: "10px 24px 0", width: "100%", maxWidth: 360,
+                gap: "6px 12px", padding: "6px 24px 0", width: "100%", maxWidth: 360,
               }}>
                 {DEFAULT_CATEGORIES.map(cat => (
                   <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -686,7 +658,7 @@ export default function App() {
                 ))}
               </div>
 
-              <p style={{ marginTop: 8, fontSize: 9, color: "rgba(255,255,255,0.15)", letterSpacing: "0.2em" }}>
+              <p style={{ marginTop: 10, fontSize: 9, color: "rgba(255,255,255,0.15)", letterSpacing: "0.2em" }}>
                 HOLD A SLICE TO ACTIVATE
               </p>
 
@@ -722,7 +694,7 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -60 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
-              style={{ flex: 1, overflowY: "auto", padding: "16px 18px 32px" }}
+              style={{ padding: "16px 18px 32px" }}
             >
               <p style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", textAlign: "center", marginBottom: 18 }}>
                 THIS WEEK'S RITUAL LOG
@@ -749,7 +721,7 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -60 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
-              style={{ flex: 1, overflowY: "auto", padding: "16px 18px 40px" }}
+              style={{ padding: "16px 18px 40px" }}
             >
               <p style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", textAlign: "center", marginBottom: 18 }}>
                 RITUAL HISTORY
