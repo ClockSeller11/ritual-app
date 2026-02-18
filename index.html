@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <title>RITUAL</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Theme color — matches the app's dark background -->
+    <meta name="theme-color" content="#080812" />
+
+    <!-- iOS / Safari "Add to Home Screen" support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="RITUAL" />
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+
+    <!-- Favicon fallback -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-96x96.png" />
+
+    <!-- Google Fonts — Space Mono (preconnect for speed) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      /* Prevent flash of white background before React loads */
+      html, body, #root {
+        background-color: #080812;
+        margin: 0;
+        padding: 0;
+        min-height: 100svh;
+      }
+
+      /* Prevent text selection and callout menus on long-press (mobile) */
+      * {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      /* Allow text selection inside inputs */
+      input, textarea {
+        -webkit-user-select: text;
+        user-select: text;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- React mounts here -->
+    <div id="root"></div>
+
+    <!-- Vite injects the compiled app bundle here automatically -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
