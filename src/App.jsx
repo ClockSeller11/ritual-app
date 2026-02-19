@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Settings, X, RotateCcw, ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { Settings, X, RotateCcw, Check } from "lucide-react";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 
-// ─── CATEGORY CONFIG ────────────────────────────────────────────────────────
+// ─── CATEGORY CONFIG ─────────────────────────────────────────────────────────
 const DEFAULT_CATEGORIES = [
   { id: "finance",    label: "Business/Finance",    emoji: "💼", color: "#ff3b30", neon: "255,59,48",   orbitals: ["Track", "Invest", "Scale"] },
   { id: "tinkering",  label: "Tinkering/Invention", emoji: "⚙️",  color: "#ff9500", neon: "255,149,0",   orbitals: ["Design", "Build", "Prototype"] },
@@ -19,8 +19,17 @@ const DEFAULT_CATEGORIES = [
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-// ─── HELPERS ────────────────────────────────────────────────────────────────
-const toDateStr = (d = new Date()) => d.toISOString().split("T")[0];
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+
+// ✅ TIMEZONE FIX: reads local year/month/day directly from the device clock.
+// The old `d.toISOString().split("T")[0]` returned a UTC date, which meant
+// the daily reset could fire hours before actual local midnight (e.g. 8 pm EST).
+const toDateStr = (d = new Date()) => {
+  const y  = d.getFullYear();
+  const m  = String(d.getMonth() + 1).padStart(2, "0");
+  const dy = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dy}`;
+};
 
 const toCartesian = (cx, cy, r, deg) => {
   const rad = ((deg - 90) * Math.PI) / 180;
@@ -44,10 +53,10 @@ const donutSlicePath = (cx, cy, r, ir, a1, a2) => {
 };
 
 const getWeekDates = () => {
-  const now = new Date();
-  const day = now.getDay();
+  const now  = new Date();
+  const day  = now.getDay();
   const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-  const mon = new Date(now.getFullYear(), now.getMonth(), diff);
+  const mon  = new Date(now.getFullYear(), now.getMonth(), diff);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(mon);
     d.setDate(mon.getDate() + i);
@@ -58,14 +67,31 @@ const getWeekDates = () => {
 const getMonthDays = (year, month) => {
   const count = new Date(year, month + 1, 0).getDate();
   return Array.from({ length: count }, (_, i) => {
-    const d = i + 1;
-    return `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const day = i + 1;
+    return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   });
 };
 
-// ─── MINI RING (heatmap cell) ────────────────────────────────────────────────
+// ─── RESPONSIVE PIE SIZE ──────────────────────────────────────────────────────
+// Caps at 300 px on large phones, floors at 220 px on very small screens.
+// The flex centering in the view handles positioning — this just sets diameter.
+function usePieSize() {
+  const [size, setSize] = useState(() =>
+    Math.min(300, Math.max(220, window.innerHeight - 260))
+  );
+  useEffect(() => {
+    const update = () =>
+      setSize(Math.min(300, Math.max(220, window.innerHeight - 260)));
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return size;
+}
+
+// ─── MINI RING ────────────────────────────────────────────────────────────────
 function MiniRing({ loggedSet, categories, size = 26 }) {
-  const cx = size / 2, cy = size / 2, r = size * 0.42, ir = size * 0.22;
+  const cx = size / 2, cy = size / 2;
+  const r  = size * 0.42, ir = size * 0.22;
   return (
     <svg width={size} height={size} style={{ overflow: "visible" }}>
       {categories.map((cat, i) => {
@@ -148,15 +174,17 @@ function HeatmapCalendar({ logs, categories }) {
   };
 
   return (
-    <div className="space-y-8 pb-8">
+    <div style={{ display: "flex", flexDirection: "column", gap: 32, paddingBottom: 32 }}>
       {monthsToShow.map(({ year, month }) => {
-        const days = getMonthDays(year, month);
+        const days     = getMonthDays(year, month);
         const firstDay = new Date(year, month, 1).getDay();
-        const offset = firstDay === 0 ? 6 : firstDay - 1;
-        const label = new Date(year, month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+        const offset   = firstDay === 0 ? 6 : firstDay - 1;
+        const label    = new Date(year, month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
         return (
           <div key={`${year}-${month}`}>
-            <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, letterSpacing: "0.15em", marginBottom: 10 }}>{label.toUpperCase()}</p>
+            <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, letterSpacing: "0.15em", marginBottom: 10 }}>
+              {label.toUpperCase()}
+            </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
               {["M","T","W","T","F","S","S"].map((d, i) => (
                 <div key={i} style={{ textAlign: "center", color: "rgba(255,255,255,0.15)", fontSize: 9, paddingBottom: 4 }}>{d}</div>
@@ -164,17 +192,13 @@ function HeatmapCalendar({ logs, categories }) {
               {Array.from({ length: offset }, (_, i) => <div key={`e${i}`} />)}
               {days.map((dateStr, di) => {
                 const loggedSet = getLoggedSet(dateStr);
-                const isToday = dateStr === toDateStr();
+                const isToday   = dateStr === toDateStr();
                 return (
                   <div key={dateStr} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                     <div style={{ position: "relative" }}>
                       <MiniRing loggedSet={loggedSet} categories={categories} size={26} />
                       {isToday && (
-                        <div style={{
-                          position: "absolute", inset: 0,
-                          border: "1.5px solid rgba(255,255,255,0.4)",
-                          borderRadius: "50%",
-                        }} />
+                        <div style={{ position: "absolute", inset: 0, border: "1.5px solid rgba(255,255,255,0.4)", borderRadius: "50%" }} />
                       )}
                     </div>
                     <span style={{ fontSize: 8, color: isToday ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.15)" }}>
@@ -194,8 +218,8 @@ function HeatmapCalendar({ logs, categories }) {
 // ─── SETTINGS PANEL ──────────────────────────────────────────────────────────
 function SettingsPanel({ orbitals, setOrbitals, onClearData, onClose }) {
   const [expandedCat, setExpandedCat] = useState(null);
-  const [editValues, setEditValues] = useState(orbitals);
-  const [saved, setSaved] = useState(false);
+  const [editValues, setEditValues]   = useState(orbitals);
+  const [saved, setSaved]             = useState(false);
 
   const handleSave = () => {
     setOrbitals(editValues);
@@ -221,17 +245,14 @@ function SettingsPanel({ orbitals, setOrbitals, onClearData, onClose }) {
           background: "#0c0c18",
           borderTop: "1px solid rgba(255,255,255,0.08)",
           borderRadius: "24px 24px 0 0",
-          width: "100%",
-          maxHeight: "82vh",
-          overflowY: "auto",
+          width: "100%", maxHeight: "82vh", overflowY: "auto",
           padding: "24px 20px 40px",
         }}
       >
-        {/* Handle */}
         <div style={{ width: 36, height: 4, background: "rgba(255,255,255,0.15)", borderRadius: 2, margin: "0 auto 20px" }} />
-        
+
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <span style={{ fontSize: 13, letterSpacing: "0.2em", color: "rgba(255,255,255,0.6)", fontFamily: "'Space Mono',monospace" }}>SETTINGS</span>
+          <span style={{ fontSize: 13, letterSpacing: "0.2em", color: "rgba(255,255,255,0.6)" }}>SETTINGS</span>
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "6px 8px", cursor: "pointer", color: "rgba(255,255,255,0.4)" }}>
             <X size={16} />
           </button>
@@ -244,10 +265,9 @@ function SettingsPanel({ orbitals, setOrbitals, onClearData, onClose }) {
             <button
               onClick={() => setExpandedCat(expandedCat === cat.id ? null : cat.id)}
               style={{
-                display: "flex", alignItems: "center", gap: 10,
-                width: "100%", textAlign: "left", background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.05)", borderRadius: 10, padding: "10px 14px",
-                cursor: "pointer", color: "white",
+                display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
+                background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)",
+                borderRadius: 10, padding: "10px 14px", cursor: "pointer", color: "white",
               }}
             >
               <div style={{ width: 10, height: 10, borderRadius: "50%", background: cat.color, flexShrink: 0 }} />
@@ -258,8 +278,7 @@ function SettingsPanel({ orbitals, setOrbitals, onClearData, onClose }) {
             </button>
             <AnimatePresence>
               {expandedCat === cat.id && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                  style={{ overflow: "hidden" }}>
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: "hidden" }}>
                   <div style={{ padding: "8px 0 4px 20px", display: "flex", flexDirection: "column", gap: 6 }}>
                     {(editValues[cat.id] || cat.orbitals).map((orb, i) => (
                       <input
@@ -267,12 +286,12 @@ function SettingsPanel({ orbitals, setOrbitals, onClearData, onClose }) {
                         value={orb}
                         onChange={e => setEditValues(prev => ({
                           ...prev,
-                          [cat.id]: prev[cat.id].map((o, j) => j === i ? e.target.value : o)
+                          [cat.id]: prev[cat.id].map((o, j) => j === i ? e.target.value : o),
                         }))}
                         style={{
                           background: "rgba(255,255,255,0.04)", border: `1px solid ${cat.color}30`,
-                          borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "rgba(255,255,255,0.7)",
-                          outline: "none", fontFamily: "'Space Mono',monospace",
+                          borderRadius: 8, padding: "8px 12px", fontSize: 12,
+                          color: "rgba(255,255,255,0.7)", outline: "none",
                         }}
                       />
                     ))}
@@ -314,8 +333,10 @@ function SettingsPanel({ orbitals, setOrbitals, onClearData, onClose }) {
   );
 }
 
-// ─── MAIN APP ────────────────────────────────────────────────────────────────
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
+
+  // ── State ──────────────────────────────────────────────────────────────────
   const [logs, setLogs] = useState(() => {
     try { return JSON.parse(localStorage.getItem("ritual_logs") || "{}"); } catch { return {}; }
   });
@@ -323,23 +344,57 @@ export default function App() {
     try {
       const saved = JSON.parse(localStorage.getItem("ritual_orbitals") || "null");
       return saved || DEFAULT_CATEGORIES.reduce((a, c) => ({ ...a, [c.id]: [...c.orbitals] }), {});
-    } catch { return DEFAULT_CATEGORIES.reduce((a, c) => ({ ...a, [c.id]: [...c.orbitals] }), {}); }
+    } catch {
+      return DEFAULT_CATEGORIES.reduce((a, c) => ({ ...a, [c.id]: [...c.orbitals] }), {});
+    }
   });
 
-  const [currentView, setCurrentView] = useState(0);
-  const [activeSlice, setActiveSlice] = useState(null);
+  const [currentView, setCurrentView]           = useState(0);
+  const [activeSlice, setActiveSlice]           = useState(null);
   const [orbitalPositions, setOrbitalPositions] = useState([]);
-  const [showSettings, setShowSettings] = useState(false);
-  const [justLogged, setJustLogged] = useState(null); // { catId, orbital }
+  const [showSettings, setShowSettings]         = useState(false);
+  const [justLogged, setJustLogged]             = useState(null);    // { catId, orbital }
+  const [newDayToast, setNewDayToast]           = useState(false);   // fires once per new day
 
-  const longPressTimer = useRef(null);
-  const isLongPress = useRef(false);
+  const longPressTimer   = useRef(null);
+  const isLongPress      = useRef(false);
   const pointerDownSlice = useRef(null);
+  const logsRef          = useRef(logs);           // mirror ref for visibilitychange handler
+  useEffect(() => { logsRef.current = logs; }, [logs]);
 
-  // Persist
-  useEffect(() => { localStorage.setItem("ritual_logs", JSON.stringify(logs)); }, [logs]);
+  // ── Persist on every change ────────────────────────────────────────────────
+  useEffect(() => { localStorage.setItem("ritual_logs",     JSON.stringify(logs));    }, [logs]);
   useEffect(() => { localStorage.setItem("ritual_orbitals", JSON.stringify(orbitals)); }, [orbitals]);
 
+  // ── Bulletproof save: flush when app goes to background ───────────────────
+  // iOS can terminate a PWA tab before the next render, so we save on hide too.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden") {
+        localStorage.setItem("ritual_logs", JSON.stringify(logsRef.current));
+      }
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, []);
+
+  // ── Daily reset check ──────────────────────────────────────────────────────
+  // Logs are already keyed by local date string, so history is never at risk.
+  // This detects a new local day and shows a "fresh start" celebration toast.
+  useEffect(() => {
+    const todayStr   = toDateStr();           // local-timezone date
+    const lastOpened = localStorage.getItem("ritual_last_opened_date");
+
+    if (lastOpened && lastOpened !== todayStr) {
+      // New day! Previous day's logs are safe in logs[lastOpened].
+      setNewDayToast(true);
+      setTimeout(() => setNewDayToast(false), 3500);
+    }
+
+    localStorage.setItem("ritual_last_opened_date", todayStr);
+  }, []); // runs once on mount
+
+  // ── Derived ────────────────────────────────────────────────────────────────
   const todayStr = toDateStr();
 
   const getLoggedCatsToday = () => {
@@ -353,7 +408,7 @@ export default function App() {
     const key = `${catId}:${orbital}`;
     setLogs(prev => ({
       ...prev,
-      [todayStr]: { ...(prev[todayStr] || {}), [key]: Date.now() }
+      [todayStr]: { ...(prev[todayStr] || {}), [key]: Date.now() },
     }));
     setJustLogged({ catId, orbital });
     setTimeout(() => setJustLogged(null), 2000);
@@ -361,39 +416,39 @@ export default function App() {
     setActiveSlice(null);
   };
 
+  // ── Pointer / long-press handlers ─────────────────────────────────────────
   const handlePointerDown = (idx, e) => {
     e.preventDefault();
     e.stopPropagation();
-    isLongPress.current = false;
+    isLongPress.current      = false;
     pointerDownSlice.current = idx;
 
     longPressTimer.current = setTimeout(() => {
       isLongPress.current = true;
       try { navigator.vibrate?.(30); } catch {}
 
-      // Compute orbital positions
-      const cat = DEFAULT_CATEGORIES[idx];
+      const cat      = DEFAULT_CATEGORIES[idx];
       const midAngle = idx * 45 + 22.5;
-      const orbs = orbitals[cat.id] || cat.orbitals;
-      const spread = orbs.length === 3 ? [-38, 0, 38] : orbs.length === 4 ? [-55, -18, 18, 55] : [-50, -25, 0, 25, 50];
-      const positions = orbs.map((_, i) => {
-        const angleDeg = midAngle + spread[i] - 90;
-        const rad = (angleDeg * Math.PI) / 180;
-        const dist = 115;
-        return { x: Math.cos(rad) * dist, y: Math.sin(rad) * dist };
-      });
+      const orbs     = orbitals[cat.id] || cat.orbitals;
+      const spread   =
+        orbs.length === 3 ? [-38, 0, 38] :
+        orbs.length === 4 ? [-55, -18, 18, 55] :
+                            [-50, -25, 0, 25, 50];
 
-      setOrbitalPositions(positions);
+      setOrbitalPositions(
+        orbs.map((_, i) => {
+          const angleDeg = midAngle + spread[i] - 90;
+          const rad      = (angleDeg * Math.PI) / 180;
+          return { x: Math.cos(rad) * 115, y: Math.sin(rad) * 115 };
+        })
+      );
       setActiveSlice(idx);
     }, 380);
   };
 
   const handlePointerUp = () => {
     clearTimeout(longPressTimer.current);
-    if (!isLongPress.current) {
-      // Short tap — do nothing, just cancel
-    }
-    isLongPress.current = false;
+    isLongPress.current      = false;
     pointerDownSlice.current = null;
   };
 
@@ -404,10 +459,10 @@ export default function App() {
 
   const dismissOrbitals = () => setActiveSlice(null);
 
-  // Swipe logic
+  // ── Swipe navigation ──────────────────────────────────────────────────────
   const dragStartX = useRef(null);
   const handleTouchStart = (e) => { dragStartX.current = e.touches[0].clientX; };
-  const handleTouchEnd = (e) => {
+  const handleTouchEnd   = (e) => {
     if (dragStartX.current === null) return;
     const dx = e.changedTouches[0].clientX - dragStartX.current;
     if (Math.abs(dx) > 60) {
@@ -417,23 +472,27 @@ export default function App() {
     dragStartX.current = null;
   };
 
-  // Pie dimensions
-  const PIE_SIZE = 310;
+  // ── Pie geometry ──────────────────────────────────────────────────────────
+  const PIE_SIZE = usePieSize();
   const cx = PIE_SIZE / 2, cy = PIE_SIZE / 2;
-  const R = 133, IR = 52;
-  const loggedToday = getLoggedCatsToday();
+  const R  = Math.round(PIE_SIZE * 0.429);
+  const IR = Math.round(PIE_SIZE * 0.168);
+
+  const loggedToday    = getLoggedCatsToday();
   const completedCount = loggedToday.size;
+  const views          = ["RITUAL", "WEEKLY", "HISTORY"];
 
-  const views = ["RITUAL", "WEEKLY", "HISTORY"];
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
       style={{
-        minHeight: "100svh",
+        height: "100svh",            // Exact screen height — no overflow
+        display: "flex",
+        flexDirection: "column",     // Stack: header → tabs → content
         background: "#080812",
         color: "white",
         fontFamily: "'Space Mono', 'Courier New', monospace",
-        overflowX: "hidden",
+        overflow: "hidden",
         position: "relative",
         userSelect: "none",
         WebkitUserSelect: "none",
@@ -441,41 +500,25 @@ export default function App() {
       onTouchStart={activeSlice !== null ? undefined : handleTouchStart}
       onTouchEnd={activeSlice !== null ? undefined : handleTouchEnd}
     >
-      {/* Ambient background glow */}
-      <div style={{
-        position: "fixed", inset: 0, pointerEvents: "none",
-        background: "radial-gradient(ellipse at 50% 40%, rgba(10,8,30,0.98) 0%, #050508 100%)",
-        zIndex: 0,
-      }} />
-      {/* Subtle grid */}
-      <div style={{
-        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
-        backgroundImage: "linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)",
-        backgroundSize: "40px 40px",
-      }} />
+      {/* Background layers */}
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, background: "radial-gradient(ellipse at 50% 40%, rgba(10,8,30,0.98) 0%, #050508 100%)" }} />
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, backgroundImage: "linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
 
-      {/* Header */}
-      <div style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "20px 22px 0" }}>
+      {/* Header — flexShrink:0 so it never gets squished */}
+      <div style={{ flexShrink: 0, position: "relative", zIndex: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 22px 0" }}>
         <div>
           <div style={{ fontSize: 20, letterSpacing: "0.4em", color: "rgba(255,255,255,0.85)", fontWeight: "bold" }}>RITUAL</div>
           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", letterSpacing: "0.12em", marginTop: 2 }}>
             {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }).toUpperCase()}
           </div>
         </div>
-        <button
-          onClick={() => setShowSettings(true)}
-          style={{
-            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
-            borderRadius: 10, padding: "8px 9px", cursor: "pointer", color: "rgba(255,255,255,0.35)",
-            display: "flex", alignItems: "center",
-          }}
-        >
+        <button onClick={() => setShowSettings(true)} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "8px 9px", cursor: "pointer", color: "rgba(255,255,255,0.35)", display: "flex", alignItems: "center" }}>
           <Settings size={16} />
         </button>
       </div>
 
-      {/* View navigation tabs */}
-      <div style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "center", gap: 6, padding: "14px 0 0" }}>
+      {/* View tabs — flexShrink:0 */}
+      <div style={{ flexShrink: 0, position: "relative", zIndex: 10, display: "flex", justifyContent: "center", gap: 6, padding: "10px 0 0" }}>
         {views.map((v, i) => (
           <button
             key={v}
@@ -494,10 +537,11 @@ export default function App() {
         ))}
       </div>
 
-      {/* Views container */}
-      <div style={{ position: "relative", zIndex: 5, overflow: "hidden" }}>
+      {/* ── Views area: flex:1 claims all remaining height ────────────────── */}
+      <div style={{ flex: 1, position: "relative", zIndex: 5, overflow: "hidden" }}>
         <AnimatePresence mode="wait">
-          {/* ── VIEW 0: PIE ─────────────────────────────────── */}
+
+          {/* ── VIEW 0: RITUAL PIE ────────────────────────────────────────── */}
           {currentView === 0 && (
             <motion.div
               key="pie-view"
@@ -505,19 +549,24 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -60 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 12 }}
+              {/*
+                ✅ CENTERING FIX:
+                className provides the Tailwind layout classes exactly as
+                requested. `h-full` fills the parent (the views div above),
+                `flex flex-col items-center justify-center` centers the pie
+                vertically and horizontally inside that full height.
+                No absolute positioning involved.
+              */}
+              className="flex flex-col items-center justify-center w-full h-full"
+              style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
             >
               {/* PIE SVG */}
               <div style={{ position: "relative", width: PIE_SIZE, height: PIE_SIZE }}>
-                <svg
-                  width={PIE_SIZE}
-                  height={PIE_SIZE}
-                  style={{ position: "absolute", inset: 0, overflow: "visible" }}
-                >
+                <svg width={PIE_SIZE} height={PIE_SIZE} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
                   <defs>
                     {DEFAULT_CATEGORIES.map(cat => (
                       <filter key={cat.id} id={`neon-${cat.id}`} x="-60%" y="-60%" width="220%" height="220%">
-                        <feGaussianBlur stdDeviation="6" result="blur1" />
+                        <feGaussianBlur stdDeviation="6"  result="blur1" />
                         <feGaussianBlur stdDeviation="14" result="blur2" />
                         <feMerge>
                           <feMergeNode in="blur2" />
@@ -529,11 +578,11 @@ export default function App() {
                   </defs>
 
                   {DEFAULT_CATEGORIES.map((cat, i) => {
-                    const a1 = i * 45 + 1;
-                    const a2 = (i + 1) * 45 - 1;
+                    const a1       = i * 45 + 1;
+                    const a2       = (i + 1) * 45 - 1;
                     const isLogged = loggedToday.has(cat.id);
                     const isActive = activeSlice === i;
-                    const outerR = isActive ? R + 14 : R;
+                    const outerR   = isActive ? R + 14 : R;
                     return (
                       <motion.path
                         key={cat.id}
@@ -541,10 +590,7 @@ export default function App() {
                         fill={cat.color}
                         opacity={isLogged ? 1 : 0.18}
                         filter={isLogged ? `url(#neon-${cat.id})` : undefined}
-                        animate={{
-                          scale: isActive ? 1.04 : 1,
-                          opacity: isLogged ? 1 : isActive ? 0.65 : 0.18,
-                        }}
+                        animate={{ scale: isActive ? 1.04 : 1, opacity: isLogged ? 1 : isActive ? 0.65 : 0.18 }}
                         style={{ transformOrigin: `${cx}px ${cy}px`, cursor: "pointer", touchAction: "none" }}
                         onPointerDown={e => handlePointerDown(i, e)}
                         onPointerUp={handlePointerUp}
@@ -554,30 +600,22 @@ export default function App() {
                     );
                   })}
 
-                  {/* Inner circle */}
+                  {/* Donut hole */}
                   <circle cx={cx} cy={cy} r={IR - 3} fill="#080812" />
                   <circle cx={cx} cy={cy} r={IR - 3} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={1.5} />
 
-                  {/* Center text */}
-                  <text x={cx} y={cy - 7} textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize={18} fontFamily="'Space Mono',monospace" fontWeight="bold">
-                    {completedCount}
-                  </text>
-                  <text x={cx} y={cy + 9} textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize={9} fontFamily="'Space Mono',monospace" letterSpacing="2">
-                    OF 8
-                  </text>
+                  {/* Center count */}
+                  <text x={cx} y={cy - 7} textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize={18} fontFamily="'Space Mono',monospace" fontWeight="bold">{completedCount}</text>
+                  <text x={cx} y={cy + 9} textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize={9}  fontFamily="'Space Mono',monospace" letterSpacing="2">OF 8</text>
 
-                  {/* Slice emojis */}
+                  {/* Emoji labels */}
                   {DEFAULT_CATEGORIES.map((cat, i) => {
                     const midAngle = (i * 45 + 22.5 - 90) * (Math.PI / 180);
-                    const labelR = 100;
+                    const labelR   = R * 0.75;
                     const lx = cx + labelR * Math.cos(midAngle);
                     const ly = cy + labelR * Math.sin(midAngle);
                     return (
-                      <text
-                        key={cat.id}
-                        x={lx} y={ly}
-                        textAnchor="middle" dominantBaseline="middle"
-                        fontSize={17}
+                      <text key={cat.id} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontSize={17}
                         style={{ pointerEvents: "none", userSelect: "none" }}
                         opacity={loggedToday.has(cat.id) ? 1 : 0.45}
                       >
@@ -587,10 +625,10 @@ export default function App() {
                   })}
                 </svg>
 
-                {/* Orbital Circles */}
+                {/* Orbital buttons */}
                 <AnimatePresence>
                   {activeSlice !== null && (() => {
-                    const cat = DEFAULT_CATEGORIES[activeSlice];
+                    const cat  = DEFAULT_CATEGORIES[activeSlice];
                     const orbs = orbitals[cat.id] || cat.orbitals;
                     return orbs.map((orb, i) => {
                       const pos = orbitalPositions[i] || { x: 0, y: 0 };
@@ -603,19 +641,16 @@ export default function App() {
                           transition={{ delay: i * 0.065, type: "spring", stiffness: 350, damping: 22 }}
                           onClick={() => logActivity(cat.id, orb)}
                           style={{
-                            position: "absolute",
-                            left: "50%", top: "50%",
+                            position: "absolute", left: "50%", top: "50%",
                             marginLeft: -34, marginTop: -34,
-                            width: 68, height: 68,
-                            borderRadius: "50%",
+                            width: 68, height: 68, borderRadius: "50%",
                             background: `radial-gradient(circle at 35% 35%, ${cat.color}ee, ${cat.color}88)`,
                             boxShadow: `0 0 16px rgba(${cat.neon},0.6), 0 0 32px rgba(${cat.neon},0.3), inset 0 1px 0 rgba(255,255,255,0.25)`,
                             border: `1.5px solid rgba(${cat.neon},0.5)`,
                             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                             cursor: "pointer", zIndex: 50,
-                            color: "rgba(0,0,0,0.8)",
-                            fontSize: 9, fontWeight: "bold", letterSpacing: "0.06em",
-                            textAlign: "center", lineHeight: 1.2, padding: 6,
+                            color: "rgba(0,0,0,0.8)", fontSize: 9, fontWeight: "bold",
+                            letterSpacing: "0.06em", textAlign: "center", lineHeight: 1.2, padding: 6,
                             fontFamily: "'Space Mono',monospace",
                           }}
                         >
@@ -626,43 +661,73 @@ export default function App() {
                   })()}
                 </AnimatePresence>
 
-                {/* Backdrop to dismiss */}
+                {/* Dismiss-orbitals backdrop */}
                 {activeSlice !== null && (
-                  <div
-                    onClick={dismissOrbitals}
-                    style={{
-                      position: "fixed", inset: 0, zIndex: 30,
-                      background: "rgba(0,0,0,0.4)", backdropFilter: "blur(1px)",
-                    }}
-                  />
+                  <div onClick={dismissOrbitals} style={{ position: "fixed", inset: 0, zIndex: 30, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(1px)" }} />
                 )}
               </div>
 
-              {/* Legend grid */}
+              {/*
+                ✅ LEGEND FIX: 2-column grid (was 4-column).
+                Each label now has enough room to render without truncation.
+                Font size bumped to 12px (Tailwind's text-xs) for mobile legibility.
+              */}
               <div style={{
-                display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr",
-                gap: "6px 12px", padding: "6px 24px 0", width: "100%", maxWidth: 360,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",   // 2 columns — spacious and readable
+                gap: "9px 24px",
+                padding: "16px 32px 0",
+                width: "100%",
+                maxWidth: 340,
               }}>
                 {DEFAULT_CATEGORIES.map(cat => (
-                  <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{
-                      width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+                      width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
                       background: cat.color,
-                      opacity: loggedToday.has(cat.id) ? 1 : 0.25,
+                      opacity: loggedToday.has(cat.id) ? 1 : 0.3,
                       boxShadow: loggedToday.has(cat.id) ? `0 0 6px rgba(${cat.neon},0.8)` : "none",
                     }} />
-                    <span style={{ fontSize: 8, color: "rgba(255,255,255,0.25)", letterSpacing: "0.06em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {/* text-xs equivalent: 12px — up from 8px, no more truncation */}
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", letterSpacing: "0.04em" }}>
                       {cat.label.split("/")[0].toUpperCase()}
                     </span>
                   </div>
                 ))}
               </div>
 
-              <p style={{ marginTop: 10, fontSize: 9, color: "rgba(255,255,255,0.15)", letterSpacing: "0.2em" }}>
+              {/* Hint — 11px, up from 9px */}
+              <p style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em" }}>
                 HOLD A SLICE TO ACTIVATE
               </p>
 
-              {/* Just logged toast */}
+              {/* New-day toast */}
+              <AnimatePresence>
+                {newDayToast && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.88, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.92, y: -8 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                    style={{
+                      marginTop: 12,
+                      background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)",
+                      borderRadius: 12, padding: "9px 18px",
+                      fontSize: 11, color: "rgba(255,255,255,0.55)", letterSpacing: "0.14em",
+                      display: "flex", alignItems: "center", gap: 8,
+                    }}
+                  >
+                    <svg width={16} height={16} style={{ flexShrink: 0 }}>
+                      {DEFAULT_CATEGORIES.map((cat, i) => (
+                        <path key={cat.id} d={donutSlicePath(8, 8, 7.5, 3.5, i * 45, i * 45 + 43)} fill={cat.color} opacity={0.6} />
+                      ))}
+                    </svg>
+                    NEW DAY — SLATE IS CLEAN
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Activity-logged toast */}
               <AnimatePresence>
                 {justLogged && (
                   <motion.div
@@ -686,7 +751,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* ── VIEW 1: WEEKLY ──────────────────────────────── */}
+          {/* ── VIEW 1: WEEKLY ──────────────────────────────────────────── */}
           {currentView === 1 && (
             <motion.div
               key="weekly-view"
@@ -694,14 +759,13 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -60 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
+              className="h-full w-full overflow-y-auto"
               style={{ padding: "16px 18px 32px" }}
             >
               <p style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", textAlign: "center", marginBottom: 18 }}>
                 THIS WEEK'S RITUAL LOG
               </p>
               <WeeklyChart logs={logs} categories={DEFAULT_CATEGORIES} />
-
-              {/* Category key */}
               <div style={{ marginTop: 20, display: "flex", flexWrap: "wrap", gap: "6px 14px", justifyContent: "center" }}>
                 {DEFAULT_CATEGORIES.map(cat => (
                   <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -713,7 +777,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* ── VIEW 2: HISTORY ─────────────────────────────── */}
+          {/* ── VIEW 2: HISTORY ─────────────────────────────────────────── */}
           {currentView === 2 && (
             <motion.div
               key="history-view"
@@ -721,27 +785,27 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -60 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
+              className="h-full w-full overflow-y-auto"
               style={{ padding: "16px 18px 40px" }}
             >
               <p style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", textAlign: "center", marginBottom: 18 }}>
                 RITUAL HISTORY
               </p>
               <HeatmapCalendar logs={logs} categories={DEFAULT_CATEGORIES} />
-
-              {/* Ring legend */}
               <div style={{ marginTop: 20 }}>
                 <p style={{ fontSize: 9, color: "rgba(255,255,255,0.15)", letterSpacing: "0.15em", marginBottom: 10 }}>RING SEGMENTS</p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px" }}>
                   {DEFAULT_CATEGORIES.map(cat => (
                     <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                       <div style={{ width: 7, height: 7, borderRadius: "50%", background: cat.color }} />
-                      <span style={{ fontSize: 8.5, color: "rgba(255,255,255,0.25)" }}>{cat.label.split("/")[0]}</span>
+                      <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)" }}>{cat.label.split("/")[0]}</span>
                     </div>
                   ))}
                 </div>
               </div>
             </motion.div>
           )}
+
         </AnimatePresence>
       </div>
 
@@ -757,13 +821,13 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Google Font */}
+      {/* Global styles */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         button { font-family: 'Space Mono', monospace; }
-        input { font-family: 'Space Mono', monospace; }
-        ::-webkit-scrollbar { width: 4px; }
+        input  { font-family: 'Space Mono', monospace; }
+        ::-webkit-scrollbar       { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
       `}</style>
