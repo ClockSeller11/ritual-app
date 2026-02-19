@@ -63,22 +63,6 @@ const getMonthDays = (year, month) => {
   });
 };
 
-// ─── RESPONSIVE PIE SIZE ────────────────────────────────────────────────────
-// Calculates the largest pie that fits comfortably on the screen.
-// 220px = approx height consumed by header + nav tabs + legend + hint + safe area.
-function usePieSize() {
-  const [size, setSize] = useState(() =>
-    Math.min(300, Math.max(220, window.innerHeight - 230))
-  );
-  useEffect(() => {
-    const update = () =>
-      setSize(Math.min(300, Math.max(220, window.innerHeight - 230)));
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-  return size;
-}
-
 // ─── MINI RING (heatmap cell) ────────────────────────────────────────────────
 function MiniRing({ loggedSet, categories, size = 26 }) {
   const cx = size / 2, cy = size / 2, r = size * 0.42, ir = size * 0.22;
@@ -346,56 +330,15 @@ export default function App() {
   const [activeSlice, setActiveSlice] = useState(null);
   const [orbitalPositions, setOrbitalPositions] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
-  const [justLogged, setJustLogged] = useState(null);   // { catId, orbital }
-  const [newDayToast, setNewDayToast] = useState(false); // fires once on a new day
+  const [justLogged, setJustLogged] = useState(null); // { catId, orbital }
 
   const longPressTimer = useRef(null);
   const isLongPress = useRef(false);
   const pointerDownSlice = useRef(null);
-  // Keep a ref to the latest logs so the visibilitychange handler always saves fresh data
-  const logsRef = useRef(logs);
-  useEffect(() => { logsRef.current = logs; }, [logs]);
 
-  // ── Persist logs whenever they change ──────────────────────────────────────
-  useEffect(() => {
-    localStorage.setItem("ritual_logs", JSON.stringify(logs));
-  }, [logs]);
-
-  useEffect(() => {
-    localStorage.setItem("ritual_orbitals", JSON.stringify(orbitals));
-  }, [orbitals]);
-
-  // ── Bulletproof save: flush to localStorage when the app is backgrounded ──
-  // On iOS, pages can be killed before a re-render fires, so we save on hide.
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        localStorage.setItem("ritual_logs", JSON.stringify(logsRef.current));
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, []);
-
-  // ── Daily reset check ──────────────────────────────────────────────────────
-  // The log data is always keyed by date, so history is never at risk of being
-  // lost. "Reset" simply means today's date key will be empty — which is already
-  // true on a new day. We track the last-opened date to detect the transition
-  // and show a "New Day" celebration toast to make the reset feel intentional.
-  useEffect(() => {
-    const todayStr   = toDateStr();
-    const lastOpened = localStorage.getItem("ritual_last_opened_date");
-
-    if (lastOpened && lastOpened !== todayStr) {
-      // A new day has begun — history is already safe in `logs[lastOpened]`.
-      // Celebrate the new start.
-      setNewDayToast(true);
-      setTimeout(() => setNewDayToast(false), 3500);
-    }
-
-    // Always stamp today so tomorrow's check works correctly.
-    localStorage.setItem("ritual_last_opened_date", todayStr);
-  }, []); // runs once on mount
+  // Persist
+  useEffect(() => { localStorage.setItem("ritual_logs", JSON.stringify(logs)); }, [logs]);
+  useEffect(() => { localStorage.setItem("ritual_orbitals", JSON.stringify(orbitals)); }, [orbitals]);
 
   const todayStr = toDateStr();
 
@@ -474,12 +417,10 @@ export default function App() {
     dragStartX.current = null;
   };
 
-  // Responsive pie dimensions — scales to available screen height
-  const PIE_SIZE = usePieSize();
+  // Pie dimensions
+  const PIE_SIZE = 310;
   const cx = PIE_SIZE / 2, cy = PIE_SIZE / 2;
-  // R and IR scale proportionally from the 310px baseline
-  const R  = Math.round(PIE_SIZE * 0.429);  // 133 / 310
-  const IR = Math.round(PIE_SIZE * 0.168);  // 52  / 310
+  const R = 133, IR = 52;
   const loggedToday = getLoggedCatsToday();
   const completedCount = loggedToday.size;
 
@@ -488,13 +429,11 @@ export default function App() {
   return (
     <div
       style={{
-        height: "100svh",
-        display: "flex",
-        flexDirection: "column",
+        minHeight: "100svh",
         background: "#080812",
         color: "white",
         fontFamily: "'Space Mono', 'Courier New', monospace",
-        overflow: "hidden",
+        overflowX: "hidden",
         position: "relative",
         userSelect: "none",
         WebkitUserSelect: "none",
@@ -516,7 +455,7 @@ export default function App() {
       }} />
 
       {/* Header */}
-      <div style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 22px 0", flexShrink: 0 }}>
+      <div style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "20px 22px 0" }}>
         <div>
           <div style={{ fontSize: 20, letterSpacing: "0.4em", color: "rgba(255,255,255,0.85)", fontWeight: "bold" }}>RITUAL</div>
           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", letterSpacing: "0.12em", marginTop: 2 }}>
@@ -536,7 +475,7 @@ export default function App() {
       </div>
 
       {/* View navigation tabs */}
-      <div style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "center", gap: 6, padding: "10px 0 0", flexShrink: 0 }}>
+      <div style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "center", gap: 6, padding: "14px 0 0" }}>
         {views.map((v, i) => (
           <button
             key={v}
@@ -555,9 +494,8 @@ export default function App() {
         ))}
       </div>
 
-      {/* Views container — flex:1 fills all space after header + tabs.
-          The inner div is needed because AnimatePresence doesn't forward flex sizing. */}
-      <div style={{ position: "relative", zIndex: 5, flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      {/* Views container */}
+      <div style={{ position: "relative", zIndex: 5, overflow: "hidden" }}>
         <AnimatePresence mode="wait">
           {/* ── VIEW 0: PIE ─────────────────────────────────── */}
           {currentView === 0 && (
@@ -567,15 +505,7 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -60 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
-              style={{
-                position: "absolute",         // Pull out of normal flow so it
-                inset: 0,                     // fills the full views container
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",     // True vertical centering
-                paddingBottom: "env(safe-area-inset-bottom, 12px)",
-              }}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 12 }}
             >
               {/* PIE SVG */}
               <div style={{ position: "relative", width: PIE_SIZE, height: PIE_SIZE }}>
@@ -639,7 +569,7 @@ export default function App() {
                   {/* Slice emojis */}
                   {DEFAULT_CATEGORIES.map((cat, i) => {
                     const midAngle = (i * 45 + 22.5 - 90) * (Math.PI / 180);
-                    const labelR = R * 0.75; // proportional to pie size
+                    const labelR = 100;
                     const lx = cx + labelR * Math.cos(midAngle);
                     const ly = cy + labelR * Math.sin(midAngle);
                     return (
@@ -711,63 +641,26 @@ export default function App() {
               {/* Legend grid */}
               <div style={{
                 display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr",
-                gap: "4px 12px", padding: "10px 24px 0", width: "100%", maxWidth: 360,
+                gap: "6px 12px", padding: "6px 24px 0", width: "100%", maxWidth: 360,
               }}>
                 {DEFAULT_CATEGORIES.map(cat => (
                   <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                     <div style={{
-                      width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                      width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
                       background: cat.color,
                       opacity: loggedToday.has(cat.id) ? 1 : 0.25,
                       boxShadow: loggedToday.has(cat.id) ? `0 0 6px rgba(${cat.neon},0.8)` : "none",
                     }} />
-                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", letterSpacing: "0.06em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <span style={{ fontSize: 8, color: "rgba(255,255,255,0.25)", letterSpacing: "0.06em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {cat.label.split("/")[0].toUpperCase()}
                     </span>
                   </div>
                 ))}
               </div>
 
-              <p style={{ marginTop: 8, fontSize: 11, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em" }}>
+              <p style={{ marginTop: 10, fontSize: 9, color: "rgba(255,255,255,0.15)", letterSpacing: "0.2em" }}>
                 HOLD A SLICE TO ACTIVATE
               </p>
-
-              {/* ── New Day toast — fires once when the calendar date changes ── */}
-              <AnimatePresence>
-                {newDayToast && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.88, y: 10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.92, y: -8 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 22 }}
-                    style={{
-                      marginTop: 12,
-                      background: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      borderRadius: 12, padding: "9px 18px",
-                      fontSize: 11, color: "rgba(255,255,255,0.55)",
-                      letterSpacing: "0.14em", textAlign: "center",
-                      display: "flex", alignItems: "center", gap: 8,
-                    }}
-                  >
-                    {/* Tiny 8-segment ring representing yesterday fully complete */}
-                    <svg width={16} height={16} style={{ flexShrink: 0 }}>
-                      {DEFAULT_CATEGORIES.map((cat, i) => {
-                        const a1 = i * 45, a2 = a1 + 43;
-                        return (
-                          <path
-                            key={cat.id}
-                            d={donutSlicePath(8, 8, 7.5, 3.5, a1, a2)}
-                            fill={cat.color}
-                            opacity={0.6}
-                          />
-                        );
-                      })}
-                    </svg>
-                    NEW DAY — SLATE IS CLEAN
-                  </motion.div>
-                )}
-              </AnimatePresence>
 
               {/* Just logged toast */}
               <AnimatePresence>
@@ -801,7 +694,7 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -60 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
-              style={{ flex: 1, overflowY: "auto", padding: "16px 18px 32px" }}
+              style={{ padding: "16px 18px 32px" }}
             >
               <p style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", textAlign: "center", marginBottom: 18 }}>
                 THIS WEEK'S RITUAL LOG
@@ -828,7 +721,7 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -60 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
-              style={{ flex: 1, overflowY: "auto", padding: "16px 18px 40px" }}
+              style={{ padding: "16px 18px 40px" }}
             >
               <p style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", textAlign: "center", marginBottom: 18 }}>
                 RITUAL HISTORY
