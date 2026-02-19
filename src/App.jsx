@@ -541,8 +541,11 @@ export default function App() {
         ))}
       </div>
 
-      {/* ── Views area: flex:1 claims all remaining height ────────────────── */}
-      <div style={{ flex: 1, position: "relative", zIndex: 5, overflowX: "visible", overflowY: "hidden" }}>
+      {/* ── Views area ─────────────────────────────────────────────────────── */}
+      {/* IMPORTANT: display:flex + flexDirection:column must be here so that   */}
+      {/* the motion.div children can use flex-1 to fill this container.        */}
+      {/* Without it, flex-1 on a child has nothing to grow into.               */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", position: "relative", zIndex: 5, overflowX: "visible", overflowY: "hidden" }}>
         <AnimatePresence mode="wait">
 
           {/* ── VIEW 0: RITUAL PIE ────────────────────────────────────────── */}
@@ -553,12 +556,18 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -60 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
-              className="flex-1 flex flex-col items-center justify-center w-full"
-              style={{ paddingBottom: "env(safe-area-inset-bottom, 16px)" }}
+              className="flex flex-col items-center justify-center flex-1 w-full h-full"
+              style={{
+                // Belt-and-suspenders: explicit height ensures centering works
+                // even in Safari/WebKit where h-full can fail without a px parent
+                height: "100%",
+                paddingBottom: "env(safe-area-inset-bottom, 16px)",
+              }}
             >
-              {/* PIE SVG */}
-              <div style={{ position: "relative", width: PIE_SIZE, height: PIE_SIZE }}>
-                <svg width={PIE_SIZE} height={PIE_SIZE} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
+              {/* PIE SVG — no position:absolute here so it stays in normal flex  */}
+              {/* flow and the centering parent can see its dimensions correctly. */}
+              <div style={{ position: "relative", width: PIE_SIZE, height: PIE_SIZE, flexShrink: 0, margin: "auto" }}>
+                <svg width={PIE_SIZE} height={PIE_SIZE} style={{ display: "block", overflow: "visible" }}>
                   <defs>
                     {DEFAULT_CATEGORIES.map(cat => (
                       <filter key={cat.id} id={`neon-${cat.id}`} x="-60%" y="-60%" width="220%" height="220%">
