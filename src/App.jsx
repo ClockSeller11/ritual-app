@@ -73,15 +73,19 @@ const getMonthDays = (year, month) => {
 };
 
 // ─── RESPONSIVE PIE SIZE ──────────────────────────────────────────────────────
-// Caps at 300 px on large phones, floors at 220 px on very small screens.
-// The flex centering in the view handles positioning — this just sets diameter.
+// Clamps to BOTH screen width and height so the pie never overflows horizontally
+// on narrow iPhones (SE, 12 mini) or gets clipped by the parent overflow:hidden.
+// The 56px horizontal budget covers the neon glow blur that bleeds outside the SVG.
 function usePieSize() {
-  const [size, setSize] = useState(() =>
-    Math.min(300, Math.max(220, window.innerHeight - 260))
-  );
+  const calc = () =>
+    Math.min(
+      window.innerWidth  - 56,   // ← never wider than viewport minus glow bleed
+      window.innerHeight - 260,  // ← never taller than remaining vertical space
+      300                        // ← absolute maximum on large phones
+    );
+  const [size, setSize] = useState(() => Math.max(220, calc()));
   useEffect(() => {
-    const update = () =>
-      setSize(Math.min(300, Math.max(220, window.innerHeight - 260)));
+    const update = () => setSize(Math.max(220, calc()));
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
@@ -538,7 +542,7 @@ export default function App() {
       </div>
 
       {/* ── Views area: flex:1 claims all remaining height ────────────────── */}
-      <div style={{ flex: 1, position: "relative", zIndex: 5, overflow: "hidden" }}>
+      <div style={{ flex: 1, position: "relative", zIndex: 5, overflowX: "visible", overflowY: "hidden" }}>
         <AnimatePresence mode="wait">
 
           {/* ── VIEW 0: RITUAL PIE ────────────────────────────────────────── */}
@@ -549,16 +553,8 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -60 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
-              {/*
-                ✅ CENTERING FIX:
-                className provides the Tailwind layout classes exactly as
-                requested. `h-full` fills the parent (the views div above),
-                `flex flex-col items-center justify-center` centers the pie
-                vertically and horizontally inside that full height.
-                No absolute positioning involved.
-              */}
-              className="flex flex-col items-center justify-center w-full h-full"
-              style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+              className="flex-1 flex flex-col items-center justify-center w-full"
+              style={{ paddingBottom: "env(safe-area-inset-bottom, 16px)" }}
             >
               {/* PIE SVG */}
               <div style={{ position: "relative", width: PIE_SIZE, height: PIE_SIZE }}>
@@ -667,19 +663,8 @@ export default function App() {
                 )}
               </div>
 
-              {/*
-                ✅ LEGEND FIX: 2-column grid (was 4-column).
-                Each label now has enough room to render without truncation.
-                Font size bumped to 12px (Tailwind's text-xs) for mobile legibility.
-              */}
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",   // 2 columns — spacious and readable
-                gap: "9px 24px",
-                padding: "16px 32px 0",
-                width: "100%",
-                maxWidth: 340,
-              }}>
+              {/* Legend — grid-cols-2 gap-2, text-xs (12px) */}
+              <div className="grid grid-cols-2 gap-2 w-full px-8 mt-4" style={{ maxWidth: 340 }}>
                 {DEFAULT_CATEGORIES.map(cat => (
                   <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{
@@ -688,7 +673,6 @@ export default function App() {
                       opacity: loggedToday.has(cat.id) ? 1 : 0.3,
                       boxShadow: loggedToday.has(cat.id) ? `0 0 6px rgba(${cat.neon},0.8)` : "none",
                     }} />
-                    {/* text-xs equivalent: 12px — up from 8px, no more truncation */}
                     <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", letterSpacing: "0.04em" }}>
                       {cat.label.split("/")[0].toUpperCase()}
                     </span>
@@ -696,8 +680,8 @@ export default function App() {
                 ))}
               </div>
 
-              {/* Hint — 11px, up from 9px */}
-              <p style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em" }}>
+              {/* Hint text — 11px with bottom breathing room */}
+              <p style={{ marginTop: 12, marginBottom: 8, fontSize: 11, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em" }}>
                 HOLD A SLICE TO ACTIVATE
               </p>
 
